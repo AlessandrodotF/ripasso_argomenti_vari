@@ -96,5 +96,6 @@ annotations = [
     ("img1.jpg", 0),
     ("img2.jpg", 1),
     ("img3.jpg", 0),
+    ("img4.jpg", 0),
 ]
 # loader_train, loader_test = build_DataLoader(annotations)

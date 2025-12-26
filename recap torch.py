@@ -88,15 +88,45 @@ import os
 dir_imgs = os.path.join("prova", "fake_imgs")
 dir_lbls = os.path.join("prova", "fake_lbls")
 
-for file in glob.glob(os.path.join(dir_lbls, "*.txt")):
-    print(os.path.basename(file))
-for file in glob.glob(os.path.join(dir_imgs, "*.txt")):
-    print(os.path.basename(file))
 
+list_lbls = [
+    os.path.basename(file) for file in glob.glob(os.path.join(dir_lbls, "*.txt"))
+]
+list_imgs = [
+    os.path.basename(file) for file in glob.glob(os.path.join(dir_imgs, "*.txt"))
+]
+
+annotations = list(zip(list_imgs, list_lbls))
+# esempio del rigo prima
 annotations = [
     ("img1.jpg", 0),
     ("img2.jpg", 1),
     ("img3.jpg", 0),
     ("img4.jpg", 0),
 ]
-# loader_train, loader_test = build_DataLoader(annotations)
+loader_train, loader_test = build_DataLoader(annotations)
+
+
+model = ...
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+criterion = torch.nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-3)
+n_epochs = 5
+model.train()
+
+for epoch in range(1, n_epochs + 1):
+    loss_total = 0.0
+
+    for images, lbls in loader_train:
+        images = images.to(device)
+        lbls = lbls.to(device).long()
+
+        optimizer.zero_grad()
+        pred = model(images)
+        loss = criterion(pred, lbls)
+        loss.backward()
+        optimizer.step()
+
+        loss_total += loss.item()
+    print(f"Loss in epoch {epoch} : {loss_total / len(loader_train)}")

@@ -86,11 +86,12 @@ import os
 
 
 dir_imgs = os.path.join("prova", "fake_imgs")
-dir_lbls = os.path.koin("prova", "fake_lbls")
+dir_lbls = os.path.join("prova", "fake_lbls")
 
 for file in glob.glob(os.path.join(dir_lbls, "*.txt")):
     print(os.path.basename(file))
-
+for file in glob.glob(os.path.join(dir_imgs, "*.txt")):
+    print(os.path.basename(file))
 
 annotations = [
     ("img1.jpg", 0),

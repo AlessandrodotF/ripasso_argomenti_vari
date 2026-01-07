@@ -12,6 +12,16 @@ import albumentations as A
 import glob
 import numpy as np
 from typing import List, Tuple
+
+# from torchmetrics.classification import (
+#    MulticlassJaccardIndex,
+#    MulticlassF1Score,
+#    MulticlassAccuracy,
+#    MeanIoU
+# )
+from torchmetrics.segmentation import MeanIoU
+from torchmetrics.classification import MulticlassConfusionMatrix
+
 # una cosa che potrei fare è considerare un problema sipo segmentation
 # dove devo applicare trasfromazioni simultanee a img e mask:
 
@@ -125,38 +135,7 @@ annotations = [
 ]
 loader_train, loader_test = build_DataLoader(annotations, dir_imgs, dir_lbls)
 
-from torchvision.models import resnet50, ResNet50_Weights
-
-N_CLASSES = 10
-model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
-params_list = list(model.parameters())
-
-# scongelo solo gli ultimi 5 layers e tengo congelati gli altri
-for params in params_list:
-    params.requires_grad = False
-
-for params in params_list[-5:]:
-    params.requires_grad = True
-
-# add custom class
-# print(model) e stampa i nomi dei layers (fc): Linear(in_features=2048, out_features=1000, bias=True)
-
-# modello con nuovo classificatore finale
-model.fc = torch.nn.Linear(model.fc.in_features, N_CLASSES)
-model.fc = torch.nn.Sequential(
-    torch.nn.Linear(model.fc.in_features, 512),
-    torch.nn.ReLU(),
-    torch.nn.Linear(512, N_CLASSES),
-)  # modello solo come estrattore di feature
-# .children() restituisce i blocchi principali (layer1, layer2, ecc.)
-# Rimuovendo l'ultimo (fc), otteniamo l'estrattore.
-feature_extractor = torch.nn.Sequential(*list(model.children())[:-1])
-
-
-# nota
-output = feature_extractor(input_img)  # Shape: [Batch, 2048, 1, 1]
-flat_output = torch.flatten(output, start_dim=1)  # Shape: [Batch, 2048]
-
+model = ...
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 criterion = torch.nn.CrossEntropyLoss()
@@ -179,3 +158,44 @@ for epoch in range(1, n_epochs + 1):
 
         loss_total += loss.item()
     print(f"Loss in epoch {epoch} : {loss_total / len(loader_train)}")
+
+NUM_CLASSES = 10
+
+metrics = {
+    "mIoU": MeanIoU(
+        num_classes=NUM_CLASSES, include_background=False, per_class=True
+    ).to(device),
+}
+
+
+# confmat = MulticlassConfusionMatrix(NUM_CLASSES, ignore_index=0).to(device)
+
+model.eval()
+with torch.no_grad():
+    for images, labels in loader_test:
+        images = images.to(device)
+        labels = labels.to(device)
+
+        preds = torch.argmax(model(images), dim=1)
+
+        for m in metrics.values():
+            m.update(preds, labels)
+
+        # miou_per_class.update(preds, labels)
+        # confmat.update(preds, labels)
+
+# scalari
+for name, m in metrics.items():
+    print(f"{name}: {m.compute().item():.4f}")
+    m.reset()
+
+# per classe
+iou_classes = miou_per_class.compute()
+for i, val in enumerate(iou_classes):
+    print(f"Class {i} IoU: {val:.4f}")
+miou_per_class.reset()
+
+# confusion matrix
+cm = confmat.compute()
+confmat.reset()
+print("Confusion matrix:\n", cm)
